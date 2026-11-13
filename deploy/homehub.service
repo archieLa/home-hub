@@ -1,0 +1,26 @@
+[Unit]
+Description=HomeHub LAN dashboard
+After=network.target
+
+[Service]
+Type=simple
+User=homehub
+Group=homehub
+WorkingDirectory=/opt/home-hub
+ExecStart=/usr/bin/python3 /opt/home-hub/server.py
+Environment=HOMEHUB_HOST=0.0.0.0
+Environment=HOMEHUB_PORT=8080
+Environment=HOMEHUB_DATA=/var/lib/homehub/entries.json
+StateDirectory=homehub
+Restart=on-failure
+RestartSec=5
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+ReadWritePaths=/var/lib/homehub
+RestrictAddressFamilies=AF_INET AF_INET6 AF_UNIX
+UMask=0077
+
+[Install]
+WantedBy=multi-user.target
