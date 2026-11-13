@@ -16,7 +16,7 @@ On Mac you can also double-click `Start.command`. Visit `http://localhost:8080` 
 
 The home screen separates local applications from websites and tools. The Configure screen contains search, category filters, and all add/edit/remove controls; use Back to home when you are done.
 
-Open **Configure** using the gear in the top corner, then choose **Add a place** and enter a name, description, emoji/text icon, category, and HTTP(S) destination. Select **Local app** for an optional health endpoint, or **Website** for an unmonitored shortcut. Empty categories become General. Data persists in an atomically replaced JSON file; back it up while the server is stopped. Run only one HomeHub process against a data file. Up to 100 entries are supported.
+Open **Configure** using the gear in the top corner, then choose **Add a place** and enter a name, description, emoji/text icon or uploaded PNG, category, and HTTP(S) destination. Select **Local app** for an optional health endpoint, or **Website** for an unmonitored shortcut. Empty categories become General. Data persists in an atomically replaced JSON file; back it up while the server is stopped. Run only one HomeHub process against a data file. Up to 100 entries are supported.
 
 ### Two different network perspectives
 
@@ -57,3 +57,5 @@ node --check static/app.js  # optional, if Node is installed
 ```
 
 The tests exercise API persistence/CRUD, validation, request protections, health responses, and health-target restrictions using local test servers. No third-party Python packages are needed.
+
+Image icons: upload a PNG in the add/edit form (up to 128 KB, at most 1024 × 1024 pixels). A preview appears before saving. Remove image to return to the emoji/text icon. Images are embedded in the configuration JSON, so backups include them and no external image hosting is required.

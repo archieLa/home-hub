@@ -119,6 +119,32 @@ class HomeHubTests(unittest.TestCase):
             self.assertEqual(server.statuses([entry]), {'one': 'Healthy'})
             self.assertEqual(submit.call_count, 1)
 
+    def test_uploaded_png_persistence_and_removal(self):
+        import base64, struct, zlib
+        def chunk(kind, payload):
+            return struct.pack('>I', len(payload)) + kind + payload + struct.pack('>I', zlib.crc32(kind + payload))
+        png = b'\x89PNG\r\n\x1a\n' + chunk(b'IHDR', struct.pack('>IIBBBBB', 1, 1, 8, 6, 0, 0, 0)) + chunk(b'IDAT', zlib.compress(b'\x00\x40\x90\x80\xff')) + chunk(b'IEND', b'')
+        image = 'data:image/png;base64,' + base64.b64encode(png).decode()
+        self.assertEqual(self.request('POST', '/api/entries', dict(self.entry, iconImage=image))[0], 200)
+        saved = self.request('GET', '/api/entries')[1][0]
+        self.assertEqual(saved['iconImage'], image)
+        self.assertEqual(json.loads(server.DATA.read_text())[0]['iconImage'], image)
+        self.assertEqual(self.request('PUT', '/api/entries/' + saved['id'], dict(saved, name='Renamed'))[0], 200)
+        self.assertEqual(self.request('GET', '/api/entries')[1][0]['iconImage'], image)
+        self.assertEqual(self.request('PUT', '/api/entries/' + saved['id'], dict(saved, iconImage=''))[0], 200)
+        self.assertEqual(self.request('GET', '/api/entries')[1][0]['iconImage'], '')
+
+    def test_rejects_unsafe_or_invalid_icons(self):
+        import base64, struct, zlib
+        for value in (None, 123, 'https://example.com/icon.png', 'data:image/svg+xml;base64,PHN2Zz4=', 'data:image/png;base64,!!!', 'data:image/png;base64,' + base64.b64encode(b'not a png').decode(), 'x' * 175001):
+            with self.subTest(value=str(value)[:40]):
+                self.assertEqual(self.request('POST', '/api/entries', dict(self.entry, iconImage=value))[0], 400)
+        payload = struct.pack('>IIBBBBB', 1025, 1, 8, 6, 0, 0, 0)
+        header = b'IHDR' + payload
+        png = b'\x89PNG\r\n\x1a\n' + struct.pack('>I', 13) + header + struct.pack('>I', zlib.crc32(header))
+        with self.assertRaisesRegex(ValueError, 'dimensions'):
+            server.validate_icon('data:image/png;base64,' + base64.b64encode(png).decode())
+
     def test_parallel_saves(self):
         with concurrent.futures.ThreadPoolExecutor(max_workers=8) as pool:
             results = list(pool.map(lambda i: self.request('POST', '/api/entries', dict(self.entry, name=str(i)))[0], range(16)))

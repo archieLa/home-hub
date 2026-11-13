@@ -1,6 +1,6 @@
 'use strict';
 const $ = selector => document.querySelector(selector);
-let entries = [], health = {}, editing = null, deleting = null;
+let entries = [], health = {}, editing = null, deleting = null, iconImage = '';
 const form = $('#form');
 async function api(path, method = 'GET', body) {
   const response = await fetch(path, {method, headers: {'Content-Type': 'application/json', 'X-HomeHub': '1'}, body: body === undefined ? undefined : JSON.stringify(body)});
@@ -14,6 +14,39 @@ function node(tag, className, text) {
   if (text !== undefined) element.textContent = text;
   return element;
 }
+function appIcon(entry) {
+  const wrapper = node('span', 'app-icon', entry.iconImage ? '' : entry.icon);
+  if (entry.iconImage) {
+    const image = document.createElement('img'); image.src = entry.iconImage; image.alt = '';
+    wrapper.append(image);
+  }
+  return wrapper;
+}
+function previewIcon() {
+  $('#icon-preview-row').hidden = !iconImage;
+  if (iconImage) $('#icon-preview').src = iconImage;
+  else $('#icon-preview').removeAttribute('src');
+}
+$('#icon-file').onchange = async event => {
+  const file = event.target.files[0];
+  if (!file) return;
+  const button = form.querySelector('[type=submit]'); button.disabled = true;
+  $('#form-error').textContent = '';
+  try {
+    if (file.size > 131072) throw new Error('Choose a PNG image up to 128 KB.');
+    const value = await new Promise((resolve, reject) => {
+      const reader = new FileReader(); reader.onload = () => resolve(reader.result);
+      reader.onerror = () => reject(new Error('Could not read this image.')); reader.readAsDataURL(file);
+    });
+    if (!value.startsWith('data:image/png;base64,')) throw new Error('Choose a PNG image.');
+    const image = new Image(); image.src = value;
+    await image.decode();
+    if (image.width > 1024 || image.height > 1024) throw new Error('Icon dimensions must be at most 1024 × 1024 pixels.');
+    iconImage = value; previewIcon();
+  } catch (error) { $('#form-error').textContent = error.message || 'Could not load this image.'; }
+  finally { event.target.value = ''; button.disabled = false; }
+};
+$('#remove-icon').onclick = () => { iconImage = ''; previewIcon(); };
 function statusNode(entry) {
   const state = health[entry.id] || 'Unknown';
   const status = node('span', `status ${state.toLowerCase()}`, state);
@@ -32,7 +65,7 @@ function render() {
   if (!visible.length) $('#cards').append(node('p', 'hint', entries.length ? 'No places match your search.' : 'No places yet. Add your first app or website above.'));
   entries.forEach(entry => {
     const link = node('a', 'destination'); link.href = entry.url; link.target = '_blank'; link.rel = 'noopener noreferrer';
-    const top = node('div', 'card-top'); top.append(node('span', 'app-icon', entry.icon), node('span', 'launch-arrow', '↗'));
+    const top = node('div', 'card-top'); top.append(appIcon(entry), node('span', 'launch-arrow', '↗'));
     link.append(top, node('h3', '', entry.name), node('p', 'description', entry.description));
     const bottom = node('div', 'card-bottom'); bottom.append(node('span', 'category-label', entry.category));
     if (entry.kind === 'local') bottom.append(statusNode(entry));
@@ -42,7 +75,7 @@ function render() {
     const row = node('article', 'settings-row');
     const summary = node('div', 'entry-summary');
     const details = node('div', 'entry-details'); details.append(node('h2', '', entry.name), node('p', '', entry.url));
-    summary.append(node('span', 'app-icon', entry.icon), details);
+    summary.append(appIcon(entry), details);
     const controls = node('div', 'controls');
     const edit = node('button', 'secondary', 'Edit'); edit.setAttribute('aria-label', `Edit ${entry.name}`); edit.onclick = () => open(entry);
     const remove = node('button', 'quiet', 'Remove'); remove.setAttribute('aria-label', `Remove ${entry.name}`); remove.onclick = () => { deleting = entry.id; $('#delete-dialog').showModal(); };
@@ -80,7 +113,7 @@ async function refreshHealth() {
   catch { $('#message').textContent = 'HomeHub is offline. Health information may be out of date.'; }
 }
 function open(entry) {
-  editing = entry?.id || null; form.reset(); $('#form-error').textContent = '';
+  editing = entry?.id || null; form.reset(); iconImage = entry?.iconImage || ''; previewIcon(); $('#form-error').textContent = '';
   $('#dialog-title').textContent = editing ? 'Edit your place' : 'Add a place';
   if (entry) Object.keys(entry).forEach(key => { if (form.elements.namedItem(key)) form.elements.namedItem(key).value = entry[key]; });
   $('#health-field').hidden = form.elements.kind.value === 'external';
@@ -92,7 +125,7 @@ form.elements.kind.onchange = () => { $('#health-field').hidden = form.elements.
 $('#search').oninput = $('#category').onchange = render;
 form.onsubmit = async event => {
   event.preventDefault(); const button = form.querySelector('[type=submit]'); button.disabled = true;
-  try { await api(editing ? `/api/entries/${editing}` : '/api/entries', editing ? 'PUT' : 'POST', Object.fromEntries(new FormData(form))); $('#dialog').close(); await load(); }
+  try { await api(editing ? `/api/entries/${editing}` : '/api/entries', editing ? 'PUT' : 'POST', {...Object.fromEntries(new FormData(form)), iconImage}); $('#dialog').close(); await load(); }
   catch (error) { $('#form-error').textContent = error.message; }
   finally { button.disabled = false; }
 };

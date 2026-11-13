@@ -1,5 +1,8 @@
 #!/usr/bin/env python3
 """HomeHub: a dependency-free dashboard for trusted home networks."""
+import base64
+import binascii
+import struct
 import concurrent.futures
 import http.client
 import ipaddress
@@ -49,6 +52,42 @@ def url(value, destination=False):
     return parsed
 
 
+def validate_icon(value):
+    if not isinstance(value, str) or len(value) > 175000:
+        raise ValueError('Icon must be a PNG image up to 128 KB.')
+    if not value:
+        return ''
+    prefix = 'data:image/png;base64,'
+    if not value.startswith(prefix):
+        raise ValueError('Choose a PNG image.')
+    try:
+        data = base64.b64decode(value[len(prefix):], validate=True)
+    except (ValueError, binascii.Error):
+        raise ValueError('Invalid PNG image.') from None
+    if len(data) > 131072 or data[:8] != b'\x89PNG\r\n\x1a\n':
+        raise ValueError('Choose a PNG image up to 128 KB.')
+    offset, kinds = 8, []
+    while offset + 12 <= len(data):
+        length = int.from_bytes(data[offset:offset + 4], 'big')
+        kind = data[offset + 4:offset + 8]
+        end = offset + 12 + length
+        if end > len(data) or binascii.crc32(data[offset + 4:end - 4]) != int.from_bytes(data[end - 4:end], 'big'):
+            raise ValueError('Invalid PNG image.')
+        if not kinds:
+            if kind != b'IHDR' or length != 13:
+                raise ValueError('Invalid PNG header.')
+            width, height = struct.unpack('>II', data[offset + 8:offset + 16])
+            if not (1 <= width <= 1024 and 1 <= height <= 1024):
+                raise ValueError('Icon dimensions must be at most 1024 × 1024 pixels.')
+        kinds.append(kind)
+        offset = end
+        if kind == b'IEND':
+            break
+    if not kinds or kinds[-1] != b'IEND' or b'IDAT' not in kinds or offset != len(data):
+        raise ValueError('Invalid or incomplete PNG image.')
+    return value
+
+
 def validate(raw):
     if not isinstance(raw, dict):
         raise ValueError('Entry must be an object.')
@@ -60,6 +99,7 @@ def validate(raw):
         result[key] = value.strip() or default
     if not result['name']:
         raise ValueError('Name is required.')
+    result['iconImage'] = validate_icon(raw.get('iconImage', ''))
     result['kind'] = raw.get('kind', 'local')
     if result['kind'] not in ('local', 'external'):
         raise ValueError('Choose Local app or Website.')
@@ -164,7 +204,7 @@ class Handler(BaseHTTPRequestHandler):
         self.send_header('Content-Length', str(len(body)))
         self.send_header('Cache-Control', 'no-store')
         self.send_header('X-Content-Type-Options', 'nosniff')
-        self.send_header('Content-Security-Policy', "default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self'; object-src 'none'; base-uri 'none'; frame-ancestors 'none'; form-action 'self'")
+        self.send_header('Content-Security-Policy', "default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data:; object-src 'none'; base-uri 'none'; frame-ancestors 'none'; form-action 'self'")
         self.end_headers()
         self.wfile.write(body)
 
@@ -187,7 +227,7 @@ class Handler(BaseHTTPRequestHandler):
             return self.send(403, {'error': 'Use HomeHub from its own page.'})
         try:
             length = int(self.headers.get('Content-Length', '0'))
-            if length < 0 or length > 16384:
+            if length < 0 or length > 190000:
                 raise ValueError('Request too large.')
             if self.command != 'DELETE' and self.headers.get('Content-Type') != 'application/json':
                 raise ValueError('Send application/json.')
