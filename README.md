@@ -2,6 +2,18 @@
 
 **Your apps. One home.** A lightweight, responsive dashboard for a trusted home LAN. Add, edit, categorize, search, and remove local apps and website shortcuts. Each opens in a new browser tab **on the device viewing HomeHub**. No server-side browser launching, dependencies, accounts, or process controls.
 
+## Screenshots
+
+Screenshots use illustrative entries and demo health checks, not a live collection of configured apps. HomeHub starts empty so you can add your own destinations.
+
+**Your home:** local applications and favorite websites, with health indicators for local apps.
+
+![HomeHub dashboard with example local apps and external websites](docs/screenshots/home.png)
+
+**Configure:** manage destinations in one place, with search, categories, and edit/remove controls.
+
+![HomeHub Configure screen with six example destinations](docs/screenshots/configure.png)
+
 ## Run on Mac or Linux
 
 Requires Python 3.10+ (check `python3 --version`). From this repository:
