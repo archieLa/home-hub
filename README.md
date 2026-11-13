@@ -8,11 +8,11 @@ Screenshots use illustrative entries and demo health checks, not a live collecti
 
 **Your home:** local applications and favorite websites, with health indicators for local apps.
 
-![HomeHub dashboard with example local apps and external websites](docs/screenshots/home.png)
+![HomeHub dashboard with example local apps and external websites](docs/screenshots/home.jpg)
 
 **Configure:** manage destinations in one place, with search, categories, and edit/remove controls.
 
-![HomeHub Configure screen with six example destinations](docs/screenshots/configure.png)
+![HomeHub Configure screen with six example destinations](docs/screenshots/configure.jpg)
 
 ## Run on Mac or Linux
 
